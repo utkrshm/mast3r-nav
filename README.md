@@ -8,7 +8,7 @@ Clone the repository with submodules:
 
 ```bash
 # Clone with submodules
-git clone --recursive https://github.com/Indoor-Seg-VLoc/mast3r-nav.git
+git clone --recursive git@github.com:utkrshm/mast3r-nav.git
 cd mast3r-nav/
 ```
 
