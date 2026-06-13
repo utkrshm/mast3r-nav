@@ -2,5 +2,6 @@
 .pixi/*
 !.pixi/config.toml
 data/*
+checkpoints/*
 output*
 **__pycache__

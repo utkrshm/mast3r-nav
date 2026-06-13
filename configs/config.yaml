@@ -12,13 +12,13 @@ defaults:
 # Path Configuration
 # ============================================
 # For single episode mode (multi_episode: false):
-episode_path: /scratch2/public_scratch/toponav/indoor-topo-loc/datasets/hm3d_navigation/hm3d_iin_val_320x240/mL8ThkuaVTM_0000000_bed_26_
+episode_path: /scratch/toponavgroup/indoor-topo-loc/datasets/hm3d_navigation/hm3d_iin_val_320x240/mL8ThkuaVTM_0000000_bed_26_
 
 # For multi-episode mode (multi_episode: true):
-episodes_dir: /scratch2/public_scratch/toponav/indoor-topo-loc/datasets/hm3d_navigation/hm3d_iin_val_320x240
+episodes_dir: /scratch/toponavgroup/indoor-topo-loc/datasets/hm3d_navigation/hm3d_iin_val_320x240
 
 # HM3D scenes root path (for loading GLB files)
-hm3d_root_path: /scratch2/public_scratch/toponav/indoor-topo-loc/datasets/hm3d_navigation/hm3d_v0.2/val
+hm3d_root_path: /scratch/toponavgroup/indoor-topo-loc/datasets/hm3d_navigation/hm3d_v0.2/val
 
 # Costmap configuration:
 # Path pattern: {costmap_base_dir}/{episode_name}/{costmap_filename}
@@ -27,7 +27,7 @@ hm3d_root_path: /scratch2/public_scratch/toponav/indoor-topo-loc/datasets/hm3d_n
 # costmap_base_dir: "/scratch2/public_scratch/vanshg/mast3r-nav/hm3d_val_sparse_from_dense"  # e.g., "/path/to/costmaps" or null to use episode_path
 # costmap_base_dir: "/scratch2/public_scratch/vanshg/mast3r-nav/hm3d_sg_habitat_mapping_replicate"  # e.g., "/path/to/costmaps" or null to use episode_path
 # costmap_base_dir: "/scratch2/public_scratch/vanshg/mast3r-nav/hm3d_val_mapping_pairwise_match_subsample_v3"  # e.g., "/path/to/costmaps" or null to use episode_path
-costmap_base_dir: "/scratch2/public_scratch/vanshg/mast3r-nav/hm3d_val_mapping_04ed325_commit_sg_habitat"  # e.g., "/path/to/costmaps" or null to use episode_path
+costmap_base_dir: "./outputs/hm3d_val_mapping_pairwise_match_subsample_v3"  # e.g., "/path/to/costmaps" or null to use episode_path
 # costmap_filename: "costmaps_320x240_EC_EMST_SINGLE_NC_NONE_NCF_10.npz"
 costmap_filename: "costmaps_320x240_EC_NONE_NC_NONE_NCF_10.npz"
 
@@ -36,13 +36,13 @@ costmap_filename: "costmaps_320x240_EC_NONE_NC_NONE_NCF_10.npz"
 # results_dirpath: "/home/onyx/work_dirs/vanshg/navigation/mast3r-nav/outputs_hm3d_val_pairwise_match_subsample_v2"
 # results_dirpath: "/home/onyx/work_dirs/vanshg/navigation/mast3r-nav/outputs_hm3d_val_mapping_04ed325_commit_sg_habitat"
 # results_dirpath: "/home/onyx/work_dirs/vanshg/navigation/mast3r-nav/outputs_hm3d_val_mapping_04ed325_commit_control_sg_habitat"
-results_dirpath: "/home/onyx/work_dirs/vanshg/navigation/mast3r-nav/outputs_hm3d_val_mapping_04ed325_commit_sg_habitat_new_controller_goal_uses_context"
+results_dirpath: "./outputs/hm3d_val_mapping_04ed325_commit_sg_habitat_new_controller_goal_uses_context"
 
 # ============================================
 # Episode Selection
 # ============================================
 # Set to true to process multiple episodes from episodes_dir
-multi_episode: true
+multi_episode: false
 
 # Episode range (only used when multi_episode: true)
 # -1 means no limit (start from 0 or go to end)
@@ -57,7 +57,7 @@ episode_list: ["y9hTuugGdiq_0000000_plant_14_", "yr17PDCnDDW_0000000_plant_32_",
 
 # Optional: txt file with episode names (1 per line) - takes priority over episode_list
 # episode_list_file: null
-episode_list_file: "/home/onyx/work_dirs/vanshg/navigation/mast3r-nav/episodes_removing_blacklist.txt"  # e.g., "/path/to/episodes.txt"
+episode_list_file: "./episodes_removing_blacklist.txt"  # e.g., "/path/to/episodes.txt"
 
 # Optional: list of episode names to skip
 episode_blacklist: []

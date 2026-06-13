@@ -29,8 +29,11 @@ if str(MAST3R_PATH) not in sys.path:
     sys.path.insert(0, str(MAST3R_PATH))
 
 # Default model path (inside the mast3r repo)
-DEFAULT_MODEL_PATH = MAST3R_PATH / "MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth"
-
+# DEFAULT_MODEL_PATH = MAST3R_PATH / "MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth"
+DEFAULT_MODEL_CANDIDATES = (
+    BASE_DIR / "checkpoints" / "MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth",
+    MAST3R_PATH / "MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth",
+)
 
 class MASt3RInference:
     """
@@ -58,7 +61,8 @@ class MASt3RInference:
         from mast3r.model import AsymmetricMASt3R
         
         self.device = device
-        self.model_path = Path(model_path) if model_path else DEFAULT_MODEL_PATH
+        # self.model_path = Path(model_path) if model_path else DEFAULT_MODEL_PATH
+        self.model_path = self._resolve_model_path(model_path)
         
         logger.info(f"Loading MASt3R model from {self.model_path}")
         self.model = AsymmetricMASt3R.from_pretrained(str(self.model_path)).to(device)
@@ -66,6 +70,27 @@ class MASt3RInference:
         
         # Image normalization
         self.normalize = tfm.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    
+    @staticmethod
+    def _resolve_model_path(model_path: Optional[str]) -> Path:
+        """Resolve the local MASt3R checkpoint path before calling from_pretrained."""
+        if model_path:
+            resolved = Path(model_path).expanduser().resolve()
+            if resolved.is_file():
+                return resolved
+            raise FileNotFoundError(f"MASt3R checkpoint not found at: {resolved}")
+
+        for candidate in DEFAULT_MODEL_CANDIDATES:
+            resolved = candidate.resolve()
+            if resolved.is_file():
+                return resolved
+
+        searched = "\n".join(f"- {candidate.resolve()}" for candidate in DEFAULT_MODEL_CANDIDATES)
+        raise FileNotFoundError(
+            "MASt3R checkpoint not found. Searched:\n"
+            f"{searched}\n"
+            "Download the checkpoint to ./checkpoints/ or pass model_path explicitly."
+        )
     
     def _load_image(self, img: Union[np.ndarray, str, Path], 
                     resize: Optional[Tuple[int, int]] = None) -> torch.Tensor:

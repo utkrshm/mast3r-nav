@@ -17,7 +17,8 @@ from .match_utils import to_normalized_coords, to_px_coords, to_numpy
 
 sys.path.append(str(Path(__file__).parent.joinpath("mast3r")))
 MAST3R_ROOT = Path(__file__).parent.joinpath("mast3r")
-MAST3R_WEIGHTS_PATH = MAST3R_ROOT / 'MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth'
+BASE_DIR = Path(__file__).parent.parent.parent
+MAST3R_WEIGHTS_PATH = BASE_DIR / "checkpoints" / 'MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth'
 
 from mast3r.model import AsymmetricMASt3R
 from mast3r.fast_nn import fast_reciprocal_NNs
@@ -223,7 +224,7 @@ class Mast3rMatcher(BaseMatcher):
 
         self.verbose = False
 
-        self.download_weights()
+        # self.download_weights()
 
         self.model = AsymmetricMASt3R.from_pretrained(self.model_path).to(device)
 
