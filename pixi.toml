@@ -150,6 +150,13 @@ hydra-core = ">=1.3.2,<2"
 opencv = ">=4.12.0,<5"
 natsort = ">=8.4.0,<9"
 yacs = ">=0.1.8,<0.2"
+gcc_linux-64 = "11.*"
+gxx_linux-64 = "11.*"
+libgl-devel = ">=1.7.0,<2"
+libegl-devel = ">=1.7.0,<2"
+xorg-libx11 = ">=1.8.13,<2"
+xorg-libxext = ">=1.3.7,<2"
+zlib = ">=1.3.2,<2"
 
 [pypi-options]
 extra-index-urls = ["https://download.pytorch.org/whl/cu118"]
