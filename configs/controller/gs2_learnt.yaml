@@ -1,0 +1,11 @@
+defaults:
+  - gs2_waypixel
+  - _self_
+
+name: 'gs2_learnt'
+boost_final_goal: False
+# following only used with real_remote
+v_min: 0.05
+v_max: 0.2
+w_min: -0.3
+w_max: 0.3

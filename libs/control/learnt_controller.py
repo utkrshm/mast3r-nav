@@ -56,7 +56,7 @@ class ObjRelLearntController:
 
         self.goal_source = kwargs.get("goal_source", None)
 
-        self.dirname_vis_episode = kwargs.get("dirname_vis_episode", None)
+        self.dirname_vis_episode = kwargs.get("dirname_vis_episode", None) or config.get("dirname_vis_episode", None)
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.goal_type = self.config["goal_type"]
@@ -76,7 +76,8 @@ class ObjRelLearntController:
         self.is_pl_normalized = self.config["is_pl_normalized"]
         self.use_vel_filter = self.config["use_vel_filter"]
 
-        self.boost_final_goal = kwargs["boost_final_goal"]
+        self.boost_final_goal = kwargs.get("boost_final_goal", None) or config.get("boost_final_goal", None)
+        assert self.boost_final_goal is not None, "boost_final_goal must be a kwarg provided"
 
         self.model = GNM(
             self.config["context_size"],

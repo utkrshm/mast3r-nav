@@ -5,3 +5,5 @@ data/*
 checkpoints/*
 output*
 **__pycache__
+docs/
+tmp*

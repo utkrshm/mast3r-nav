@@ -195,3 +195,4 @@ warmup-scheduler = "*"
 lmdb = "*"
 vit-pytorch = "*"
 positional-encodings = { version = "*", extras = ["pytorch"] }
+ipykernel = ">=7.3.0, <8"

@@ -1,0 +1,70 @@
+## New pixelwise controller trained on bigger_bot0.3-sh0.4, (NEED TO VERIFY COSTMAPS.H5 FILES, THIS HAD 234 FAILED TRAINING SCENES DURING PRE-PROCESSING WHICH IS JUST TOO MUCH, SO CHECK THAT AS WELL)
+load_run: /home2/utkarsh.malaiya/mast3r-nav/checkpoints/gnm-mast3r-nav
+
+## New pixelwise controller trained on bigger_bot0.3-sh0.4 with goal_uses_context set to TRUE so it uses a context of previous 5 costmaps, (NEED TO VERIFY COSTMAPS.H5 FILES, THIS HAD 234 FAILED TRAINING SCENES DURING PRE-PROCESSING WHICH IS JUST TOO MUCH, SO CHECK THAT AS WELL)
+# load_run: "/home/onyx/work_dirs/vanshg/navigation/sg_habitat/libs/control/visualnav_transformer/train/logs/mast3r-nav/gnm_2026_02_20_09_20_10_waypixel_bigger_bot0.3-sh0.4_habsam3_spectre_goal_uses_context"
+
+# KEY PARAMS
+predict_dists: True
+goal_type: "image_mask_enc" # ["image", "disabled", "image_mask_enc"]
+goal_value_granularity: "pixel"
+# goal_value_granularity: "mask"
+goal_use_pl: 1 # if 1/2, use pl/pl2 weights to encode masks of 'curr img' else (0) use dino-pca ft of 'goal img'
+obs_type: "disabled" # ["image", "disabled", "image_mask_enc"]
+dims_segFt: 8
+precomp: 2
+goal_uses_context: True
+goal_uses_stacked_context: False
+is_pl_normalized: False
+use_vel_filter: False
+use_mask_grad: False
+
+# navigation params, from deployment/src/navigate.py
+close_threshold: 3
+loc_radius: 4
+waypoint_index: 5
+fixed_plan: False
+
+# model params
+model_type: gnm
+obs_encoding_size: 1024
+goal_encoding_size: 1024
+
+# normalization for the action space
+normalize: True
+
+# context
+context_type: temporal # [temporal, randomized]
+context_size: 5
+
+# tradeoff between action and distance prediction loss
+alpha: 0.5
+
+# distance bounds for distance and action and distance predictions
+distance:
+    min_dist_cat: 0
+    max_dist_cat: 20
+action:
+    min_dist_cat: 2
+    max_dist_cat: 10
+close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
+
+# action output params
+len_traj_pred: 10
+learn_angle: True
+
+# dataset specific parameters
+image_size: [320, 240] # width, height
+
+# if goal_type is "image_mask_enc"
+graphs_path: ./outputs/gs2_mapping_v1
+# graphs_path: /hpcfs/users/a1232719/data/processed/navigation/
+
+# logging stuff
+## =0 turns off
+print_log_freq: 100 # in iterations
+image_log_freq: 1000 # in iterations
+num_images_log: 8 # number of images to log in a logging iteration
+pairwise_test_freq: 20 # in epochs
+wandb_log_freq: 10 # in iterations
+eval_freq: 1 # in epochs
