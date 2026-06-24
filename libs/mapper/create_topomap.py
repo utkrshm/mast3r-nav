@@ -17,11 +17,17 @@ import shutil
 from enum import Enum
 from PIL import Image
 from dataclasses import dataclass
+import h5py
+import glob
 
 from scipy.spatial import Delaunay
 from scipy.sparse.csgraph import minimum_spanning_tree
 import torch
 import torchvision.transforms as tfm
+
+# Disable torch warnings
+import warnings
+warnings.simplefilter("ignore")
 
 # Hydra imports
 import hydra
@@ -650,7 +656,7 @@ class MapTopological3DPoints:
             Costmaps array if compute_costmaps is enabled, else None
         """
         # Determine goal coordinates: explicit args > inferred > config
-        if goal_img_idx is None:
+        if not goal_img_idx:
             if hasattr(self, 'inferred_goal_img_idx'):
                 goal_img_idx = self.inferred_goal_img_idx
                 goal_px = self.inferred_goal_px
@@ -659,6 +665,10 @@ class MapTopological3DPoints:
                 goal_img_idx = self.cfg.goal.image_idx
                 goal_px = self.cfg.goal.pixel_x
                 goal_py = self.cfg.goal.pixel_y
+
+            # If multiple scenes are to be processed, and the costmaps need to be compiled (implying that this is map compilation for the training stage), then set the goal image index to the last image frame
+            if (self.cfg.scenes.multi_scene and self.cfg.scenes.compile_costmaps):
+                goal_img_idx = len(self.img_paths) - 1
 
         print(f"Goal: img_idx={goal_img_idx}, pixel=({goal_px}, {goal_py})")
 
@@ -1179,6 +1189,10 @@ class MapTopological3DPoints:
         goal_px = self.cfg.goal.pixel_x
         goal_py = self.cfg.goal.pixel_y
         
+        # If multiple scenes are to be processed, and the costmaps need to be compiled (implying that this is map compilation for the training stage), then automatically set the goal image index to the last image frame
+        if not goal_img_idx and (self.cfg.scenes.multi_scene and self.cfg.scenes.compile_costmaps):
+            goal_img_idx = len(self.img_paths) - 1
+
         self.compute_distances_to_goal_node(goal_img_idx, goal_px, goal_py)
         
         # Save graph with goal
@@ -1328,6 +1342,52 @@ def get_scene_list(cfg: DictConfig) -> list:
     return scenes
 
 
+def compile_costmaps_into_h5_file(base_dir: Path, output_file: Path):
+    # Converts the individually generated into a training compatible H5 file from which the controller can look up the costmaps linked to each frame in each trajectory.
+    # Adds a new key of "pls_pixels" to the H5 files, which is then referenced in the integrate.py file in the controller repo, to load the pixel level costmaps
+    print(f"Creating consolidated HDF5 file: {output_file}")
+    with h5py.File(output_file, "w") as f:
+        for scene_name in tqdm(base_dir, desc="Compiling scenes"):
+            scene_path = os.path.join(base_dir, scene_name)
+            
+            # Find the costmaps npz file
+            npz_files = glob.glob(os.path.join(scene_path, "costmaps_*.npz"))
+            if not npz_files:
+                # Some directories might not have costmaps computed yet
+                continue
+                
+            npz_path = npz_files[0]
+            
+            try:
+                # Load the costmap data
+                data = np.load(npz_path, allow_pickle=True)
+                # costmaps shape is typically (N_images, 240, 320)
+                costmaps = data["costmaps"]
+                
+                num_images = costmaps.shape[0]
+                for img_idx in range(num_images):
+                    key = f"{scene_name}_{img_idx}"
+                    
+                    # Get the costmap for this frame
+                    costmap_frame = costmaps[img_idx] # (H, W)
+                    
+                    # Downsample dynamically to match the model's expected shape of (60, 80)
+                    h, w = costmap_frame.shape
+                    h_downsampling_ratio = max(1, h // 60)
+                    w_downsampling_ratio = max(1, w // 80)
+                    
+                    costmap_downsampled = costmap_frame[::h_downsampling_ratio, ::w_downsampling_ratio]
+                    
+                    # Create H5 group and save dataset
+                    grp = f.create_group(key)
+                    grp.create_dataset("pls_pixels", data=costmap_downsampled)
+                    
+            except Exception as e:
+                print(f"Error processing {scene_name}: {e}")
+
+    print(f"Successfully compiled dense costmaps to {output_file}!")
+
+
 @hydra.main(version_base=None, config_path="../../configs/mapper", config_name="mapper_config")
 def main(cfg: DictConfig):
     print("\n" + "="*80)
@@ -1345,9 +1405,9 @@ def main(cfg: DictConfig):
     if len(scenes) == 0:
         raise ValueError("No scenes found to process")
     
-    # Disable goal computation for multi-scene (base graph only)
-    if cfg.scenes.multi_scene:
-        print("Multi-scene mode: disabling goal computation (base graph only)")
+    # # Disable goal computation for multi-scene (base graph only)
+    # if cfg.scenes.multi_scene:
+    #     print("Multi-scene mode: disabling goal computation (base graph only)")
     
     # Process each scene
     results = {}
@@ -1377,6 +1437,21 @@ def main(cfg: DictConfig):
         graph = make_topo_map(scene_dir, img_dir, out_dir, cfg)
         results[scene_dir.name] = graph is not None
     
+    # Compiling the costmaps into H5 file for training
+    if cfg.scenes.multi_scene and cfg.scenes.compile_costmaps:
+        print("Accidentally entered new code; debug")
+        if cfg.scenes.compiled_costmaps_file:
+            compiled_costmaps_file = Path(cfg.scenes.compiled_costmaps_file)
+        else:
+            compiled_costmaps_file = base_out_dir / "compiled_costmaps.h5"
+            print(f"No path to a compiled costmaps file supplied; saving the compiled costmaps to {compiled_costmaps_file}")
+        
+        assert not compiled_costmaps_file.is_dir(), "Please make sure that `compiled_costmaps_file` is not a directory, but the path to a file"
+        compile_costmaps_into_h5_file(
+            base_dir = cfg.scenes.base_dir,
+            output_file = cfg.scenes.compiled_costmaps_file
+        )
+
     # Summary
     successful = sum(results.values())
     print(f"\n{'='*80}")

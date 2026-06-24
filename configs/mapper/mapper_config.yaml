@@ -54,17 +54,22 @@ scenes:
   
   # Toggle between single and multi-scene mode
   multi_scene: true
-  
+
+  # Convert costmaps into training compatible .h5 files (used when multi_scene=true)
+  compile_costmaps: true
+  compiled_costmaps_file: "/scratch2/utkarsh.malaiya/datasets/gs2_modified/gs2_modified_costmaps.h5"
+
   # Base output directory (optional). If set, outputs go to base_out_dir/scene_name/
   # If null, outputs go to the scene directory itself
-  # base_out_dir: none
+  base_out_dir: null
   
   # Single scene mode: scene name (used when multi_scene=false)
   scene_name: "img_L_1preF"
   
   # Multi-scene mode options:
   # scene_list_file: ./episodes_removing_blacklist.txt   # txt file with scene names (1 per line), takes priority
-  scene_list_file: /scratch2/utkarsh.malaiya/datasets/gs2_modified/data_splits/gs2/train/traj_names.txt   # txt file with scene names (1 per line), takes priority
+  # scene_list_file: /scratch2/utkarsh.malaiya/datasets/gs2_modified/data_splits/gs2/train/traj_names.txt   # txt file with scene names (1 per line), takes priority
+  scene_list_file: /home2/utkarsh.malaiya/mast3r-nav/data/gs2_modified/data_splits/gs2/all_trajs.txt
   start_idx: 0            # Start index
   end_idx: -1             # End index (-1 = all)
   step: 1                 # Process every Nth scene
@@ -79,7 +84,7 @@ goal:
   mode: "config"
   
   # For mode="config" or "update_graph": manual goal specification
-  image_idx: 50
+  image_idx: null   # If null, then the last image becomes the goal index
   pixel_x: 160
   pixel_y: 120
   
