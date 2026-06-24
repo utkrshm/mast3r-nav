@@ -57,12 +57,12 @@ install-ros = "pip install rosbag roslz4 --extra-index-url https://rospypi.githu
 install-warmup-scheduler = "pip install git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git"
 
 # # Fix opencv - ensure we use conda's version, not pip's
-# fix-opencv = """
-# pip list | grep -i opencv && \
-# echo 'Uninstalling any pip-installed opencv...' && \
-# pip uninstall opencv-python opencv-python-headless opencv-contrib-python -y 2>/dev/null || \
-# echo 'No pip opencv found (using conda version - this is correct!)'
-# """
+fix-opencv = """
+pip list | grep -i opencv && \
+echo 'Uninstalling any pip-installed opencv...' && \
+pip uninstall opencv-python opencv-python-headless opencv-contrib-python -y 2>/dev/null || \
+echo 'No pip opencv found (using conda version - this is correct!)'
+"""
 
 # Verify installation
 verify = """
@@ -137,6 +137,9 @@ numpy = ">=1.26,<1.27"
 
 # C++ standard library - ensure consistent version
 libstdcxx-ng = ">=12"
+
+# libpng must be >=1.6.40 to provide png_set_cICP (required by opencv 4.12+)
+libpng = ">=1.6.40"
 
 # Build dependencies that habitat-sim needs
 eigen = "*"
