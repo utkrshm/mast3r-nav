@@ -50,20 +50,21 @@ compression:
 # Scene settings (unified for single and multi)
 scenes:
   # Parent directory containing scene subdirectories
-  base_dir: "/scratch/toponavgroup/indoor-topo-loc/datasets/hm3d_navigation/hm3d_iin_val_320x240"
+  base_dir: "/scratch2/utkarsh.malaiya/datasets/gs2_modified/trajectories"
   
   # Toggle between single and multi-scene mode
-  multi_scene: false
+  multi_scene: true
   
   # Base output directory (optional). If set, outputs go to base_out_dir/scene_name/
   # If null, outputs go to the scene directory itself
-  base_out_dir: ./outputs/hm3d_val_mapping_pairwise_match_subsample_v3
+  # base_out_dir: none
   
   # Single scene mode: scene name (used when multi_scene=false)
-  scene_name: "mL8ThkuaVTM_0000000_bed_26_"
+  scene_name: "img_L_1preF"
   
   # Multi-scene mode options:
-  scene_list_file: ./episodes_removing_blacklist.txt   # txt file with scene names (1 per line), takes priority
+  # scene_list_file: ./episodes_removing_blacklist.txt   # txt file with scene names (1 per line), takes priority
+  scene_list_file: /scratch2/utkarsh.malaiya/datasets/gs2_modified/data_splits/gs2/train/traj_names.txt   # txt file with scene names (1 per line), takes priority
   start_idx: 0            # Start index
   end_idx: -1             # End index (-1 = all)
   step: 1                 # Process every Nth scene
@@ -75,7 +76,7 @@ goal:
   #   config       - Goal from config (image_idx, pixel_x, pixel_y)
   #   episode      - Infer goal from episode folder (semantic mask + centroid)
   #   update_graph - Load existing base graph, add goal from config
-  mode: "episode"
+  mode: "config"
   
   # For mode="config" or "update_graph": manual goal specification
   image_idx: 50

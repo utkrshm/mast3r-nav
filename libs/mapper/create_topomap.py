@@ -715,7 +715,11 @@ class MapTopological3DPoints:
         """
         Add goal node to the sparse graph using OLD node ID calculation
         """
-        key = str(self.img_paths[goal_img_idx])
+        # In case the goal img idx is higher than the total number of frames in the scene, then set the goal as the last frame
+        try:
+            key = str(self.img_paths[goal_img_idx])
+        except IndexError:
+            key = str(self.img_paths[len(self.img_paths) - 1])
         pcd = pc_dict[key]
         coord_3d = pcd[goal_py, goal_px]
         
