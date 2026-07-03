@@ -138,6 +138,7 @@ class MapTopological3DPoints:
         # Load MASt3R model using wrapper
         self.model_path = cfg.model.path
         self.mast3r_match_subsample = self.cfg.model.subsample_or_initxy1
+        self.batch_size = self.cfg.model.get("batch_size", 64)
         self.mast3r = MASt3RInference(model_path=self.model_path, device=self.device)
     
     def _get_base_graph_filename(self):
@@ -181,7 +182,7 @@ class MapTopological3DPoints:
         w, h = self.cfg.image.width, self.cfg.image.height
         
         return (
-            f"costmaps_"
+            f"single_batch_costmaps_"
             f"{w}x{h}_"
             f"EC_{ec_mode}_"
             f"NC_{nc_mode}_"
@@ -262,14 +263,15 @@ class MapTopological3DPoints:
         # point clouds dictionary
         pc_dict = {}
         
+        # Batched self-matching: all images in one GPU call using configured batch size
+        print(f"Running batched point cloud inference on {len(self.img_paths)} images (batch_size={self.batch_size})...")
+        all_pts3d = self.mast3r.get_pts3d(
+            self.img_paths, resize=(self.H, self.W), batch_size=self.batch_size
+        )  # (N, H, W, 3)
         for img_idx, img_path in enumerate(
-            tqdm(self.img_paths, desc="Computing MASt3R point clouds")
+            tqdm(self.img_paths, desc="Storing MASt3R point clouds")
         ):
-            # Infer MASt3R model (self-to-self for point cloud extraction)
-            pts3d = self.mast3r.get_pts3d(img_path, resize=(self.H, self.W))
-            
-            # Store using string path as key for JSON serialization compatibility
-            pc_dict[str(img_path)] = pts3d
+            pc_dict[str(img_path)] = all_pts3d[img_idx]  # (H, W, 3)
         
         # Optionally save to disk
         if save_as_npz:
@@ -303,34 +305,76 @@ class MapTopological3DPoints:
         img_end_idx = len(self.img_paths)
         match_window_size = self.img_match_window_size
         
-        for i in tqdm(range(img_st_idx, img_end_idx), desc="Collecting match pairs"):
-            for j in range(i + 1, min(i + 1 + match_window_size, img_end_idx)): 
-                try:
-                    matches_im0, matches_im1 = self.mast3r.get_matches(
-                        self.img_paths[i], self.img_paths[j], 
-                        resize=(self.H, self.W),
-                        subsample=self.cfg.model.subsample_or_initxy1)
-                    
-                    num_matches = len(matches_im0)
-                    num_matches_per_pair.append(num_matches)
-                    
-                    matches_per_pair = []
-                    # Store each match as a pair (preserves correspondence)
-                    for k in range(num_matches):
-                        pixel_i = (i, int(matches_im0[k][0]), int(matches_im0[k][1]))  # (img_idx, px, py)
-                        pixel_j = (j, int(matches_im1[k][0]), int(matches_im1[k][1]))  # (img_idx, px, py)
-                        
-                        match_pair = (pixel_i, pixel_j)
-                        matches_per_pair.append(match_pair)
-                        # all_match_pairs.append(match_pair)
-                    
-                    # Sample match pairs (preserves correspondence)
-                    matches_per_pair = matches_per_pair[::nc_factor]
-                    all_match_pairs.extend(matches_per_pair)
-                                
-                except Exception as e:
-                    print(f"Error getting matches between {i} and {j}: {e}")
-                    continue
+        from mast3r.fast_nn import fast_reciprocal_NNs
+
+        # Pre-collect all (i, j) pairs for a single batched inference call
+        _pair_indices = []
+        _imgs0, _imgs1 = [], []
+        for i in range(img_st_idx, img_end_idx):
+            for j in range(i + 1, min(i + 1 + match_window_size, img_end_idx)):
+                _pair_indices.append((i, j))
+                _imgs0.append(self.img_paths[i])
+                _imgs1.append(self.img_paths[j])
+
+        print(f"Running batched match inference on {len(_pair_indices)} pairs (batch_size={self.batch_size})...")
+        try:
+            _match_out = self.mast3r.infer(
+                _imgs0, _imgs1, resize=(self.H, self.W), batch_size=self.batch_size
+            )
+        except Exception as e:
+            print(f"Batched match inference failed: {e}")
+            raise
+
+        _border = 3
+        _subsample = self.cfg.model.subsample_or_initxy1
+
+        for _pk, (i, j) in enumerate(
+            tqdm(_pair_indices, desc="Extracting matches from batch")
+        ):
+            try:
+                desc1 = _match_out["pred1"]["desc"][_pk].detach()
+                desc2 = _match_out["pred2"]["desc"][_pk].detach()
+
+                matches_im0, matches_im1 = fast_reciprocal_NNs(
+                    desc1, desc2,
+                    subsample_or_initxy1=_subsample,
+                    device=self.device,
+                    dist="dot",
+                    block_size=2**13,
+                )
+
+                # Border filtering
+                H0, W0 = _match_out["view1"]["true_shape"][_pk]
+                H1, W1 = _match_out["view2"]["true_shape"][_pk]
+                _valid = (
+                    (matches_im0[:, 0] >= _border) & (matches_im0[:, 0] < int(W0) - _border) &
+                    (matches_im0[:, 1] >= _border) & (matches_im0[:, 1] < int(H0) - _border) &
+                    (matches_im1[:, 0] >= _border) & (matches_im1[:, 0] < int(W1) - _border) &
+                    (matches_im1[:, 1] >= _border) & (matches_im1[:, 1] < int(H1) - _border)
+                )
+                matches_im0 = matches_im0[_valid]
+                matches_im1 = matches_im1[_valid]
+
+                num_matches = len(matches_im0)
+                num_matches_per_pair.append(num_matches)
+
+                # Vectorized pixel tuple construction (replaces per-match loop)
+                _px0 = matches_im0[:, 0].astype(int)
+                _py0 = matches_im0[:, 1].astype(int)
+                _px1 = matches_im1[:, 0].astype(int)
+                _py1 = matches_im1[:, 1].astype(int)
+                matches_per_pair = [
+                    ((i, _px0[k], _py0[k]), (j, _px1[k], _py1[k]))
+                    for k in range(num_matches)
+                ]
+
+                # Sample match pairs (preserves correspondence)
+                matches_per_pair = matches_per_pair[::nc_factor]
+                all_match_pairs.extend(matches_per_pair)
+
+            except Exception as e:
+                print(f"Error extracting matches between {i} and {j}: {e}")
+                continue
         
         print(f"Found {len(all_match_pairs)} match pairs across all images")
         if len(num_matches_per_pair) > 0:
@@ -867,33 +911,66 @@ class MapTopological3DPoints:
         costmap = np.full((H, W), max_dist, dtype=np.float32)
         
         pts3d_flat = pts3d.reshape(H * W, 3)  # (H*W, 3)
-        
+
+        # old costmap direct/non-direct edges classification code        
         # Step 1: Collect DA and Non-DA pixel information
-        da_pixel_indices = []
-        da_distances = [] 
-        nonda_pixel_indices = []
+        # da_pixel_indices = []
+        # da_distances = [] 
+        # nonda_pixel_indices = []        
+        # for y in range(H):
+        #     for x in range(W):
+        #         node_id = self.pixel_coord_to_global_node_id(img_idx, x, y)
+        #         linear_idx = y * W + x
+        #         if node_id in self.G.nodes:
+        #             node_type = self.G.nodes[node_id].get('type', 'unknown')
+        #             if node_type in ['da', 'goal']:
+        #                 da_pixel_indices.append(linear_idx)
+        #                 da_distances.append(self.all_path_lengths[node_id])
+        #                 costmap[y, x] = self.all_path_lengths[node_id]
+        #             else:
+        #                 nonda_pixel_indices.append(linear_idx)
+        #         else:
+        #             nonda_pixel_indices.append(linear_idx)
+        # da_pixel_indices = np.array(da_pixel_indices, dtype=np.int32)
+        # da_distances = np.array(da_distances, dtype=np.float32)
+        # nonda_pixel_indices = np.array(nonda_pixel_indices, dtype=np.int32)
+
+        # Vectorized DA/Non-DA classification: iterate over graph nodes (small set)
+        # instead of all H*W pixels. Mathematically identical to the old row-major nested loop.
         
-        for y in range(H):
-            for x in range(W):
-                node_id = self.pixel_coord_to_global_node_id(img_idx, x, y)
-                linear_idx = y * W + x
-                
-                if node_id in self.G.nodes:
-                    node_type = self.G.nodes[node_id].get('type', 'unknown')
-                    
-                    if node_type in ['da', 'goal']:
-                        da_pixel_indices.append(linear_idx)
-                        da_distances.append(self.all_path_lengths[node_id])
-                        costmap[y, x] = self.all_path_lengths[node_id]
-                    else:
-                        nonda_pixel_indices.append(linear_idx)
-                else:
-                    nonda_pixel_indices.append(linear_idx)
+        # Original code loops over all (x, y) computing `node_id = img_idx * H * W + y * W + x`
+        # Since `linear_idx = y * W + x`, we have `node_id = base_id + linear_idx`
+        _base_id = img_idx * (H * W)
+        _da_idx_list, _da_dist_list = [], []
         
-        # Convert to numpy arrays
-        da_pixel_indices = np.array(da_pixel_indices, dtype=np.int32)
-        da_distances = np.array(da_distances, dtype=np.float32)
-        nonda_pixel_indices = np.array(nonda_pixel_indices, dtype=np.int32)
+        for nid in self.G.nodes:
+            # Get current image's nodes
+            if _base_id <= nid < _base_id + H * W:
+                _ntype = self.G.nodes[nid].get('type', 'unknown')
+                if _ntype in ['da', 'goal']:
+                    # For DA/goal nodes, linear_idx is simply `nid - base_id`
+                    _da_idx_list.append(nid - _base_id)
+                    _da_dist_list.append(self.all_path_lengths[nid])
+
+        if _da_idx_list:
+            # Sorting the resulting indices ensures they are in the exact same ascending 
+            # `linear_idx` (row-major) order as the original nested loop.
+            _order = np.argsort(_da_idx_list)
+            da_pixel_indices = np.array(_da_idx_list, dtype=np.int32)[_order]
+            da_distances = np.array(_da_dist_list, dtype=np.float32)[_order]
+        else:
+            da_pixel_indices = np.array([], dtype=np.int32)
+            da_distances = np.array([], dtype=np.float32)
+
+        # The non-DA pixels are the complement of the DA pixels within the [0, H*W) range, computed efficiently using np.setdiff1d.
+        nonda_pixel_indices = np.setdiff1d(
+            np.arange(H * W, dtype=np.int32), da_pixel_indices
+        )
+
+        # Write DA distances into costmap (mirrors original costmap[y, x] = ...)
+        da_y = da_pixel_indices // W
+        da_x = da_pixel_indices % W
+        costmap[da_y, da_x] = da_distances
         
         # print(f"  Image {img_idx}: {len(da_pixel_indices)} DA pixels, {len(nonda_pixel_indices)} Non-DA pixels")
         
@@ -1347,7 +1424,7 @@ def compile_costmaps_into_h5_file(base_dir: Path, output_file: Path):
     # Adds a new key of "pls_pixels" to the H5 files, which is then referenced in the integrate.py file in the controller repo, to load the pixel level costmaps
     print(f"Creating consolidated HDF5 file: {output_file}")
     with h5py.File(output_file, "w") as f:
-        for scene_name in tqdm(base_dir, desc="Compiling scenes"):
+        for scene_name in tqdm(os.listdir(base_dir), desc="Compiling scenes"):
             scene_path = os.path.join(base_dir, scene_name)
             
             # Find the costmaps npz file
