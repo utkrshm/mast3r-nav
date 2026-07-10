@@ -1428,7 +1428,7 @@ def compile_costmaps_into_h5_file(base_dir: Path, output_file: Path):
             scene_path = os.path.join(base_dir, scene_name)
             
             # Find the costmaps npz file
-            npz_files = glob.glob(os.path.join(scene_path, "costmaps_*.npz"))
+            npz_files = glob.glob(os.path.join(scene_path, "single_batch_costmaps_*.npz"))
             if not npz_files:
                 # Some directories might not have costmaps computed yet
                 continue
@@ -1516,7 +1516,6 @@ def main(cfg: DictConfig):
     
     # Compiling the costmaps into H5 file for training
     if cfg.scenes.multi_scene and cfg.scenes.compile_costmaps:
-        print("Accidentally entered new code; debug")
         if cfg.scenes.compiled_costmaps_file:
             compiled_costmaps_file = Path(cfg.scenes.compiled_costmaps_file)
         else:

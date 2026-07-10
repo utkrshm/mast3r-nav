@@ -11,7 +11,7 @@ image:
 model:
   name: "mast3r"
   path: "./checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth"
-  device: "cuda:2"
+  device: "cuda"
   subsample_or_initxy1: 8
   batch_size: 1
 
@@ -52,7 +52,7 @@ compression:
 scenes:
   # Parent directory containing scene subdirectories
   # base_dir: "/scratch2/utkarsh.malaiya/datasets/gs2_modified/trajectories"
-  base_dir: "/scratch2/utkarsh.malaiya/datasets/droid-w_modified/trajectories"
+  base_dir: "/home2/utkarsh.malaiya/datasets/lab_floor6_data_formatted/trajectories"
   
   # Toggle between single and multi-scene mode
   multi_scene: true
@@ -60,7 +60,7 @@ scenes:
   # Convert costmaps into training compatible .h5 files (used when multi_scene=true)
   compile_costmaps: true
   # compiled_costmaps_file: "/scratch2/utkarsh.malaiya/datasets/gs2_modified/gs2_modified_costmaps.h5"
-  compiled_costmaps_file: "/scratch2/utkarsh.malaiya/datasets/droid-w_modified/droid-w_modified_costmaps.h5"
+  compiled_costmaps_file: "/home2/utkarsh.malaiya/datasets/lab_floor6_data_formatted/lab_floor6_data_modified_costmaps.h5"
 
   # Base output directory (optional). If set, outputs go to base_out_dir/scene_name/
   # If null, outputs go to the scene directory itself
@@ -73,7 +73,7 @@ scenes:
   # scene_list_file: ./episodes_removing_blacklist.txt   # txt file with scene names (1 per line), takes priority
   # scene_list_file: /scratch2/utkarsh.malaiya/datasets/gs2_modified/data_splits/gs2/train/traj_names.txt   # txt file with scene names (1 per line), takes priority
   # scene_list_file: /home2/utkarsh.malaiya/mast3r-nav/data/gs2_modified/data_splits/gs2/all_trajs.txt
-  scene_list_file: /home2/utkarsh.malaiya/mast3r-nav/data/droid-w_modified/data_splits/droid-w/all_trajs.txt
+  scene_list_file: /home2/utkarsh.malaiya/datasets/lab_floor6_data_formatted/data_splits/lab_dataset/all_trajs.txt
   start_idx: 0            # Start index
   end_idx: -1             # End index (-1 = all)
   step: 1                 # Process every Nth scene
